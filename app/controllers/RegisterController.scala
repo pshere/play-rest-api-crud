@@ -1,82 +1,58 @@
 package controllers
 
-import models.{NewUserItem, UserItem}
-import play.api.libs.json.{Json, OFormat}
-import play.api.mvc.{Action, AnyContent, BaseController, ControllerComponents}
+import models.UserItemFormatter.UserItemFormatter
+import models.{ UserItem, UserRepository }
+import play.api.libs.json.{ JsError, JsSuccess, JsValue, Json }
+import play.api.mvc.{ Action, AnyContent, BaseController, ControllerComponents }
 
-import javax.inject.{Inject, Singleton}
-import scala.collection.mutable
+import javax.inject.{ Inject, Singleton }
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.Future
 
-  @Singleton
-class RegisterController @Inject() (val controllerComponents: ControllerComponents) extends BaseController{
+@Singleton
+class RegisterController @Inject() (userRepository: UserRepository, val controllerComponents: ControllerComponents)
+    extends BaseController {
 
-    private val userItemList = new mutable.ListBuffer[UserItem]
-    userItemList += UserItem(1, "Priyanka", "abc")
-   userItemList += UserItem(2, "Aarya", "123")
-    userItemList += UserItem(3, "Snesha", "321")
-//for json formatting of each user item
-implicit val userListJson: OFormat[UserItem] = Json.format[UserItem]
-    implicit val newUserListJson = Json.format[NewUserItem]
-
-
-    def getById(id:Int): Action[AnyContent] =Action {
-      val foundUserItem = userItemList.find(_.id == id)
-      foundUserItem match {
-        case Some(value) => Ok(Json.toJson(value))
-        case None => NotFound
+  def getById(id: String): Action[AnyContent] =
+    Action.async {
+      userRepository.getById(id).map {
+        case Some(user) => Ok(Json.toJson(user))
+        case None       => NotFound
       }
     }
 
-    //for getting all content
-    def getAll:Action[AnyContent]=Action{
-     if(userItemList.isEmpty)
-      NoContent
-     else
-       Ok(Json.toJson(userItemList))
-
+  def getAll: Action[AnyContent] =
+    Action.async {
+      userRepository.getAll.map(users => Ok(Json.toJson(users)))
     }
 
-    def delete(id:Int):Action[AnyContent] =Action{
-    val foundUserItem = userItemList.find(_.id == id)
-      foundUserItem match {
-        case Some(value) => userItemList -=value
-          Ok(Json.toJson(userItemList))
-        case None => NotFound
-      }
-
-    }
-
-    def addNewUser = Action { implicit request =>
-      val content = request.body
-      val jsonObject = content.asJson
-      val userItemNew: Option[NewUserItem] =
-        jsonObject.flatMap(
-          Json.fromJson[NewUserItem](_).asOpt
-        )
-      userItemNew match {
-        case Some(newItem) =>
-          val nextId = userItemList.map(_.id).max + 1
-          val toBeAdded = UserItem(nextId, newItem.name, newItem.password)
-          userItemList += toBeAdded
-          Created(Json.toJson(toBeAdded))
-          Ok(Json.toJson(toBeAdded))
-        case None =>
-          Ok(Json.toJson(userItemNew))
-          BadRequest("not created")
+  def delete(id: String): Action[AnyContent] =
+    Action.async {
+      userRepository.delete(id).map { result =>
+        if (result >= 1) Ok("true")
+        else BadRequest("Something went wrong")
       }
     }
-def update(id:Int,changedPassword:String): Action[AnyContent] =Action{
-  val foundItem=userItemList.find(_.id==id)
-  foundItem match {
-    case Some(value) =>
-      val newValue=value.copy(password=changedPassword)
-      userItemList.dropWhileInPlace(_.id==id)
-      userItemList+= newValue
-      Accepted(Json.toJson(userItemList))
-    case None => NotFound
-  }
+
+  def addNewUser: Action[JsValue] =
+    Action.async(parse.json) { implicit request =>
+      request.body.validate[UserItem] match {
+        case JsSuccess(user: UserItem, _) =>
+          userRepository.add(user).map(_ => Ok)
+        case JsError(_)                   => Future.successful(BadRequest)
+      }
+    }
+
+  def update: Action[JsValue] =
+    Action.async(parse.json) { implicit request =>
+      request.body.validate[UserItem] match {
+        case JsSuccess(UserItem(Some(id), name, password), _) =>
+          userRepository.update(id, name, password).map { result =>
+            if (result >= 1) Ok("true")
+            else BadRequest("Something went wrong")
+          }
+        case _                                                => Future.successful(BadRequest)
+      }
+    }
 
 }
-
-
-  }

@@ -1,5 +1,9 @@
 package models
 
-case class UserItem(id:Int,name:String,password:String)
+import play.api.libs.json.{ Json, OFormat }
 
-case class NewUserItem(name:String,password:String)
+case class UserItem(id: Option[String], name: String, password: String)
+
+object UserItemFormatter {
+  implicit val UserItemFormatter: OFormat[UserItem] = Json.format[UserItem]
+}
