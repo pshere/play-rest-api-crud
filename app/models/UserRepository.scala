@@ -1,14 +1,14 @@
 package models
 
 import com.google.inject.Inject
-import play.api.db.slick.{ DatabaseConfigProvider, HasDatabaseConfigProvider }
-import slick.jdbc.JdbcProfile
+import play.api.db.slick.{DatabaseConfigProvider, HasDatabaseConfigProvider}
+import slick.jdbc. PostgresProfile
 import slick.jdbc.PostgresProfile.api._
 import slick.lifted.ProvenShape
 
-import scala.concurrent.{ ExecutionContext, Future }
+import scala.concurrent.{ExecutionContext, Future}
 
-class UserTableDef(tag: Tag) extends Table[UserItem](tag, "user") {
+class UserTableDef(tag: Tag) extends Table[UserItem](tag, "users") {
 
   def id: Rep[String]       = column[String]("id", O.PrimaryKey)
   def name: Rep[String]     = column[String]("name")
@@ -20,7 +20,7 @@ class UserTableDef(tag: Tag) extends Table[UserItem](tag, "user") {
 
 class UserRepository @Inject() (protected val dbConfigProvider: DatabaseConfigProvider)(implicit
   ec: ExecutionContext
-) extends HasDatabaseConfigProvider[JdbcProfile] {
+) extends HasDatabaseConfigProvider[PostgresProfile] {
 
   val users = TableQuery[UserTableDef]
 
